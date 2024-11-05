@@ -1,4 +1,5 @@
 import time
+from datetime import timedelta, datetime
 from threading import Thread
 from warnings import catch_warnings
 
@@ -15,9 +16,9 @@ from selenium.webdriver.support.wait import WebDriverWait
 from winerror import NOERROR
 
 import requests
-from bs4 import BeautifulSoup as bs
+from bs4 import BeautifulSoup as bs, BeautifulSoup
 
-
+#NAMES
 def filter1(driver):
     names = driver.find_elements(By.TAG_NAME, 'option')
     names = [str(n.text) for n in names]
@@ -41,7 +42,7 @@ def filter1(driver):
     })
     df.to_csv('stocks/names.csv',index=False)
 
-
+#CHECK 10 YEARS IF EXISTS AND IF NEED UPDATE
 def filter2():
     df=pd.read_csv('stocks/names.csv')
     n=df.Names[0]
@@ -56,32 +57,8 @@ def filter2():
 
     pass
 
-
+#UPDATE TILL TODAY
 def filter3(url):
-    #scrape the data
-    # df=pd.read_csv('stocks/names.csv')
-    # for n in df.Names:
-    # df = pd.read_csv('stocks/names.csv')
-    # n = df.Names[0]
-    # Input=driver.find_element(By.ID,'Code')
-    # Input.send_keys(n)
-    # btn=driver.find_element(By.CLASS_NAME,'btn-primary-sm')
-    # btn.click()
-    # try:
-    #     # Wait until the expected table rows are present
-    #     WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.TAG_NAME, 'tr')))
-    #
-    #     # Re-fetch the elements after waiting
-    #     elements = driver.find_elements(By.TAG_NAME, 'tr')[2:]  # Skip header rows
-    #
-    #     # Iterate through the rows and extract cell text
-    #     for e in elements:
-    #         # Re-fetch cells for the current row
-    #         cells = e.find_elements(By.TAG_NAME, 'td')
-    #         if cells:  # Ensure there are cells to avoid index errors
-    #             print(cells[0].text)
-    # except Exception as e:
-    #     print(f"An error occurred while processing {n}: {e}")
     df = pd.read_csv('stocks/names.csv')
     driver = webdriver.Chrome()
     driver.get(url)
@@ -146,70 +123,42 @@ def filter3(url):
     pass
 
 
-def temp(url):
-    df = pd.read_csv('stocks/names.csv')
-    name=df.Names[0]
-    url = f'https://www.mse.mk/mk/stats/symbolhistory/{name}'
-    resp=requests.get(url)
-    soup=bs(resp.text, 'html.parser')
-    data=[]
-    products=soup.find_all('tr',)[2:]
-    for p in products:
-        print(p.text)
 
-def temp2():
-    df = pd.read_csv('stocks/names.csv')
-    name = df.Names[0]
-    url = f'https://www.mse.mk/mk/stats/symbolhistory/{name}'
+def UPDATE_10_YEARS(url,date_from,date_to):
     driver = webdriver.Chrome()
     driver.get(url)
-    try:
-        # Wait until the expected table rows are present
-        WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.TAG_NAME, 'tr')))
-        table = driver.find_element(By.ID, 'results')
-        # Re-fetch the elements after waiting
-        elements = table.find_elements(By.TAG_NAME, 'tr')[2:]  # Skip header rows
 
-        # Iterate through the rows and extract cell text
-        for e in elements:
-            # Re-fetch cells for the current row
-            print(e.text)
-            # cells = e.find_elements(By.TAG_NAME, 'td')
-            # if cells:  # Ensure there are cells to avoid index errors
-            #     print(cells[0].text)
-    except Exception as e:
-        print(f"An error occurred while processing {name}:")
-    # Iterate through each name in the DataFrame
-    for n in df.Names:
+    interval = timedelta(days=365)
 
-        Input = driver.find_element(By.ID, 'Code')
-        # Input.clear()  # Clear previous input
-        Input.send_keys(n)
+    # Iterate through the dates in 365-day intervals
+    current_date = date_from
+
+    while current_date < date_to:
+        end_date=current_date + interval
+        if end_date > date_to:
+            end_date = date_to
+
+        fromDateInput = driver.find_element(By.ID, 'FromDate')
+        fromDateInput.clear()
+        fromDateInput.send_keys(current_date.strftime('%d.%m.%Y'))
+        toDateInput = driver.find_element(By.ID, 'ToDate')
+        toDateInput.clear()
+        toDateInput.send_keys(end_date.strftime('%d.%m.%Y'))
         btn = driver.find_element(By.CLASS_NAME, 'btn-primary-sm')
         btn.click()
+        # TO DO
+        WebDriverWait(driver, 100).until(EC.presence_of_all_elements_located((By.TAG_NAME, 'tr')))
 
-        table = driver.find_element(By.ID, 'results')  # Adjust this locator to match your table
-        ActionChains(driver).move_to_element(table).click().perform()
+        time.sleep(1)
+        table = driver.find_element(By.CSS_SELECTOR, '#resultsTable > tbody:nth-child(2)')
+        soup = BeautifulSoup(table.get_attribute('innerHTML'), 'html.parser')
+        elements = soup.find_all('tr')
+        for e in elements:
+            date = e.find_all('td')[0].text
+            print(date)
 
-        # time.sleep(200)
+        current_date = end_date
 
-        # Wait for the table rows to load after clicking the button
-        try:
-            # Wait until the expected table rows are present
-            WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.TAG_NAME, 'tr')))
-
-            # Re-fetch the elements after waiting
-            elements = table.find_elements(By.TAG_NAME, 'tr')[2:]  # Skip header rows
-
-            # Iterate through the rows and extract cell text
-            for e in elements:
-                # Re-fetch cells for the current row
-                print(e.text)
-                # cells = e.find_elements(By.TAG_NAME, 'td')
-                # if cells:  # Ensure there are cells to avoid index errors
-                #     print(cells[0].text)
-        except Exception as e:
-            print(f"An error occurred while processing {n}: {e}")
 
 url='https://www.mse.mk/mk/stats/symbolhistory/ALK'
 # driver = webdriver.Chrome()
@@ -217,7 +166,11 @@ url='https://www.mse.mk/mk/stats/symbolhistory/ALK'
 
 # filter1(driver)
 # filter2()
-filter3(url)
+# filter3(url)
 # temp(url)
 # driver.quit()
+start_date = datetime(2014, 1, 1)
+currentday=datetime.today()
+url='https://www.mse.mk/mk/stats/symbolhistory/ALK'
+UPDATE_10_YEARS(url,start_date, currentday)
 
