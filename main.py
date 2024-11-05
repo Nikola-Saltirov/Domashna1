@@ -3,6 +3,7 @@ from datetime import timedelta, datetime
 from threading import Thread
 from warnings import catch_warnings
 
+from pandas.core.interchange.dataframe_protocol import DataFrame
 from selenium import webdriver
 from selenium.webdriver import ActionChains
 from selenium.webdriver.common.keys import Keys
@@ -17,6 +18,7 @@ from winerror import NOERROR
 
 import requests
 from bs4 import BeautifulSoup as bs, BeautifulSoup
+from selenium.webdriver.chrome.options import Options
 
 #NAMES
 def filter1(driver):
@@ -33,7 +35,6 @@ def filter1(driver):
     directory_path = Path(f"stocks/files")
     directory_path.mkdir(parents=True, exist_ok=True)
 
-
     print(len(names2))
     print(len(dates))
     df=pd.DataFrame({
@@ -45,13 +46,15 @@ def filter1(driver):
 #CHECK 10 YEARS IF EXISTS AND IF NEED UPDATE
 def filter2():
     df=pd.read_csv('stocks/names.csv')
-    n=df.Names[0]
-    try:
-        temp=pd.read_csv(f'stocks/files/{n}')
-        df.iat[0,1]=temp.Date[-1]
-    except:
-        print(2)
-        df.iat[0, 1]=None
+    names=df.Names
+    i=0
+    for n in names:
+        try:
+            temp=pd.read_csv(f'stocks/data/{n}.csv')
+            df.iat[0,1]=temp.Date[-1]
+        except:
+            print(2)
+            df.iat[0, 1]=None
 
     df.to_csv('stocks/names.csv', index=False)
 
@@ -107,32 +110,24 @@ def filter3(url):
     print(fail)
 
 
-    # lastPrice=elements[1].text
-    # max=elements[2].text
-    # min=elements[3].text
-    # volume=elements[6].text
-    # tBest=elements[7].text
-    # print(date)
-    # print(lastPrice)
-    # print(max)
-    # print(min)
-    # print(volume)
-    # print(tBest)
-
-
     pass
 
 
 
-def UPDATE_10_YEARS(url,date_from,date_to):
-    driver = webdriver.Chrome()
+def update(url, date_from, date_to,name,index):
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--no-sandbox")
+    driver = webdriver.Chrome(options=chrome_options)
     driver.get(url)
+
 
     interval = timedelta(days=365)
 
     # Iterate through the dates in 365-day intervals
     current_date = date_from
-
+    new_list=[]
     while current_date < date_to:
         end_date=current_date + interval
         if end_date > date_to:
@@ -149,15 +144,43 @@ def UPDATE_10_YEARS(url,date_from,date_to):
         # TO DO
         WebDriverWait(driver, 100).until(EC.presence_of_all_elements_located((By.TAG_NAME, 'tr')))
 
-        time.sleep(1)
+        time.sleep(0.5)
         table = driver.find_element(By.CSS_SELECTOR, '#resultsTable > tbody:nth-child(2)')
         soup = BeautifulSoup(table.get_attribute('innerHTML'), 'html.parser')
         elements = soup.find_all('tr')
-        for e in elements:
-            date = e.find_all('td')[0].text
-            print(date)
+        for i in range(len(elements)):
+            tds = elements[-i].find_all('td')
+            date = tds[0].text
+            last_traded_price = tds[1].text
+            max= tds[2].text
+            min = tds[3].text
+            avg_price = tds[4].text
+            promet = tds[5].text
+            volume = tds[6].text
+            promet_BEST = tds[7].text
+            promet_vo_denari = tds[8].text
+            stock={
+                "Date":date,
+                "last_traded_price":last_traded_price,
+                "max":max,
+                "min":min,
+                "avg_price":avg_price,
+                "promet":promet,
+                "volume":volume,
+                "promet_BEST":promet_BEST,
+                "promet_vo_denari":promet_vo_denari
+            }
+            new_list.append(stock)
 
         current_date = end_date
+        print(f'finished {current_date}')
+    df=pd.DataFrame(new_list)
+    df.to_csv(f'stocks/data/{name}.csv',index=False)
+
+    #TODO
+    nameDF=pd.read_csv(f'stocks/names.csv')
+    nameDF.iat[index,1]=date_to
+
 
 
 url='https://www.mse.mk/mk/stats/symbolhistory/ALK'
@@ -171,6 +194,7 @@ url='https://www.mse.mk/mk/stats/symbolhistory/ALK'
 # driver.quit()
 start_date = datetime(2014, 1, 1)
 currentday=datetime.today()
-url='https://www.mse.mk/mk/stats/symbolhistory/ALK'
-UPDATE_10_YEARS(url,start_date, currentday)
+name='ALK'
+url=f'https://www.mse.mk/mk/stats/symbolhistory/{name}'
+update(url, start_date, currentday,name)
 
