@@ -114,72 +114,72 @@ def filter3(url):
 
 
 
-def update(url, date_from, date_to,name,index):
+def update(url, date_from, date_to,names):
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
-    driver = webdriver.Chrome(options=chrome_options)
+    driver = webdriver.Chrome()
     driver.get(url)
+    for name in names:
+        interval = timedelta(days=365)
+        Input = driver.find_element(By.ID, 'Code')
+        Input.send_keys(name)
+        # Iterate through the dates in 365-day intervals
+        current_date = date_from
+        new_list=[]
+        while current_date < date_to:
+            end_date=current_date + interval
+            if end_date > date_to:
+                end_date = date_to
 
+            fromDateInput = driver.find_element(By.ID, 'FromDate')
+            fromDateInput.clear()
+            fromDateInput.send_keys(current_date.strftime('%d.%m.%Y'))
+            toDateInput = driver.find_element(By.ID, 'ToDate')
+            toDateInput.clear()
+            toDateInput.send_keys(end_date.strftime('%d.%m.%Y'))
+            btn = driver.find_element(By.CLASS_NAME, 'btn-primary-sm')
+            btn.click()
+            # TO DO
+            WebDriverWait(driver, 100).until(EC.presence_of_all_elements_located((By.TAG_NAME, 'tr')))
 
-    interval = timedelta(days=365)
+            time.sleep(0.5)
+            table = driver.find_element(By.CSS_SELECTOR, '#resultsTable > tbody:nth-child(2)')
+            soup = BeautifulSoup(table.get_attribute('innerHTML'), 'html.parser')
+            elements = soup.find_all('tr')
+            for i in range(len(elements)):
+                tds = elements[-i].find_all('td')
+                date = tds[0].text
+                last_traded_price = tds[1].text
+                max= tds[2].text
+                min = tds[3].text
+                avg_price = tds[4].text
+                promet = tds[5].text
+                volume = tds[6].text
+                promet_BEST = tds[7].text
+                promet_vo_denari = tds[8].text
+                stock={
+                    "Date":date,
+                    "last_traded_price":last_traded_price,
+                    "max":max,
+                    "min":min,
+                    "avg_price":avg_price,
+                    "promet":promet,
+                    "volume":volume,
+                    "promet_BEST":promet_BEST,
+                    "promet_vo_denari":promet_vo_denari
+                }
+                new_list.append(stock)
 
-    # Iterate through the dates in 365-day intervals
-    current_date = date_from
-    new_list=[]
-    while current_date < date_to:
-        end_date=current_date + interval
-        if end_date > date_to:
-            end_date = date_to
-
-        fromDateInput = driver.find_element(By.ID, 'FromDate')
-        fromDateInput.clear()
-        fromDateInput.send_keys(current_date.strftime('%d.%m.%Y'))
-        toDateInput = driver.find_element(By.ID, 'ToDate')
-        toDateInput.clear()
-        toDateInput.send_keys(end_date.strftime('%d.%m.%Y'))
-        btn = driver.find_element(By.CLASS_NAME, 'btn-primary-sm')
-        btn.click()
-        # TO DO
-        WebDriverWait(driver, 100).until(EC.presence_of_all_elements_located((By.TAG_NAME, 'tr')))
-
-        time.sleep(0.5)
-        table = driver.find_element(By.CSS_SELECTOR, '#resultsTable > tbody:nth-child(2)')
-        soup = BeautifulSoup(table.get_attribute('innerHTML'), 'html.parser')
-        elements = soup.find_all('tr')
-        for i in range(len(elements)):
-            tds = elements[-i].find_all('td')
-            date = tds[0].text
-            last_traded_price = tds[1].text
-            max= tds[2].text
-            min = tds[3].text
-            avg_price = tds[4].text
-            promet = tds[5].text
-            volume = tds[6].text
-            promet_BEST = tds[7].text
-            promet_vo_denari = tds[8].text
-            stock={
-                "Date":date,
-                "last_traded_price":last_traded_price,
-                "max":max,
-                "min":min,
-                "avg_price":avg_price,
-                "promet":promet,
-                "volume":volume,
-                "promet_BEST":promet_BEST,
-                "promet_vo_denari":promet_vo_denari
-            }
-            new_list.append(stock)
-
-        current_date = end_date
-        print(f'finished {current_date}')
-    df=pd.DataFrame(new_list)
-    df.to_csv(f'stocks/data/{name}.csv',index=False)
+            current_date = end_date
+            print(f'finished {current_date}')
+        df=pd.DataFrame(new_list)
+        df.to_csv(f'stocks/data/{name}.csv',index=False)
 
     #TODO
-    nameDF=pd.read_csv(f'stocks/names.csv')
-    nameDF.iat[index,1]=date_to
+    # nameDF=pd.read_csv(f'stocks/names.csv')
+    # nameDF.iat[index,1]=date_to
 
 
 
@@ -194,7 +194,6 @@ url='https://www.mse.mk/mk/stats/symbolhistory/ALK'
 # driver.quit()
 start_date = datetime(2014, 1, 1)
 currentday=datetime.today()
-name='ALK'
-url=f'https://www.mse.mk/mk/stats/symbolhistory/{name}'
-update(url, start_date, currentday,name)
+names=['ADIN','BANA','BGOR']
+update(url, start_date, currentday,names)
 
